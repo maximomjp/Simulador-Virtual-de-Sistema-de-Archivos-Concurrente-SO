@@ -1,1 +1,5 @@
-/SimuladorArchivosSO-MujicaMorabito/nbproject/private/
+nbproject/private/
+build/
+dist/
+*.class
+*.jar
