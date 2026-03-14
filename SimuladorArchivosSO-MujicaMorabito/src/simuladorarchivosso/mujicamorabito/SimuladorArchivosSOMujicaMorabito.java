@@ -6,6 +6,7 @@ package simuladorarchivosso.mujicamorabito;
 
 import model.Diskscheduler;
 import structures.LinkedList;
+import model.LockManager;
 
 /**
  *
@@ -18,20 +19,28 @@ public class SimuladorArchivosSOMujicaMorabito {
      */
     public static void main(String[] args) {
         // TODO code application logic here
-        
-        Diskscheduler scheduler = new Diskscheduler(50, 200);
-        scheduler.setDirectionUp(true);
+        LockManager lm = new LockManager();
 
-        LinkedList<Integer> requests = new LinkedList<>();
-        int[] positions = {95, 180, 34, 119, 11, 123, 62, 64};
-        for (int p : positions) requests.addLast(p);
+// P1 pide leer archivo → SHARED OK
+System.out.println(lm.acquireLock("/docs/a.txt", 1, LockManager.LockType.SHARED));   // true
 
-        // Probar cada política
-        for (Diskscheduler.Policy policy : Diskscheduler.Policy.values()) {
-            LinkedList<Integer> order = scheduler.schedule(requests, policy);
-            System.out.println(policy + ": " + scheduler.orderToString(order)
-                + " | Movimiento: " + scheduler.calculateTotalMovement(order));
-        }
+// P2 también quiere leer → SHARED OK (múltiples lectores)
+System.out.println(lm.acquireLock("/docs/a.txt", 2, LockManager.LockType.SHARED));   // true
+
+// P3 quiere escribir → EXCLUSIVE DENIED (hay lectores)
+System.out.println(lm.acquireLock("/docs/a.txt", 3, LockManager.LockType.EXCLUSIVE)); // false
+
+// P1 libera su lock
+lm.releaseLock("/docs/a.txt", 1);
+
+// P2 libera su lock
+lm.releaseLock("/docs/a.txt", 2);
+
+// P3 intenta de nuevo → EXCLUSIVE OK (ya no hay nadie)
+System.out.println(lm.acquireLock("/docs/a.txt", 3, LockManager.LockType.EXCLUSIVE)); // true
+
+// P4 quiere leer → SHARED DENIED (hay escritor exclusivo)
+System.out.println(lm.acquireLock("/docs/a.txt", 4, LockManager.LockType.SHARED));    // false
     }
     
 }
