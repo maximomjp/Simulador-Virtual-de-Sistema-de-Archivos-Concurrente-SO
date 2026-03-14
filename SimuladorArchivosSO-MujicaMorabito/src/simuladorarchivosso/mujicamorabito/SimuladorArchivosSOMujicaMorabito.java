@@ -7,6 +7,9 @@ package simuladorarchivosso.mujicamorabito;
 import model.Diskscheduler;
 import structures.LinkedList;
 import model.LockManager;
+import model.UserManager;
+import model.FileEntry;
+import java.awt.Color;
 
 /**
  *
@@ -19,28 +22,28 @@ public class SimuladorArchivosSOMujicaMorabito {
      */
     public static void main(String[] args) {
         // TODO code application logic here
-        LockManager lm = new LockManager();
+        UserManager um = new UserManager();
 
-// P1 pide leer archivo → SHARED OK
-System.out.println(lm.acquireLock("/docs/a.txt", 1, LockManager.LockType.SHARED));   // true
+// Arranca como admin
+System.out.println(um.getSummary());          // admin | ADMIN
+System.out.println("Puede crear: " + um.canCreate());   // true
+System.out.println("Puede eliminar: " + um.canDelete()); // true
 
-// P2 también quiere leer → SHARED OK (múltiples lectores)
-System.out.println(lm.acquireLock("/docs/a.txt", 2, LockManager.LockType.SHARED));   // true
+// Cambiar a usuario
+um.switchToUser("juan");
+System.out.println(um.getSummary());          // juan | USER
+System.out.println("Puede crear: " + um.canCreate());   // false
+System.out.println("Puede eliminar: " + um.canDelete()); // false
 
-// P3 quiere escribir → EXCLUSIVE DENIED (hay lectores)
-System.out.println(lm.acquireLock("/docs/a.txt", 3, LockManager.LockType.EXCLUSIVE)); // false
+// Probar lectura
+FileEntry archivoDeJuan = new FileEntry("notas.txt", "juan", 3, false, Color.BLUE);
+FileEntry archivoDePedro = new FileEntry("secreto.txt", "pedro", 2, false, Color.RED);
+FileEntry archivoPublico = new FileEntry("readme.txt", "pedro", 1, false, Color.GREEN);
+archivoPublico.setPublic(true);
 
-// P1 libera su lock
-lm.releaseLock("/docs/a.txt", 1);
-
-// P2 libera su lock
-lm.releaseLock("/docs/a.txt", 2);
-
-// P3 intenta de nuevo → EXCLUSIVE OK (ya no hay nadie)
-System.out.println(lm.acquireLock("/docs/a.txt", 3, LockManager.LockType.EXCLUSIVE)); // true
-
-// P4 quiere leer → SHARED DENIED (hay escritor exclusivo)
-System.out.println(lm.acquireLock("/docs/a.txt", 4, LockManager.LockType.SHARED));    // false
+System.out.println("Leer propio: " + um.canRead(archivoDeJuan));      // true
+System.out.println("Leer de otro: " + um.canRead(archivoDePedro));    // false
+System.out.println("Leer público: " + um.canRead(archivoPublico));    // true
     }
     
 }
