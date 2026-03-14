@@ -88,6 +88,11 @@ public class MainFrame extends JFrame {
 
     private JPanel locksPanel;
 
+    private JLabel statTotalValue;
+    private JLabel statUsedValue;
+    private JLabel statFreeValue;
+    private JLabel statFilesValue;
+
     // =======================================================
     // CONSTRUCTOR
     // =======================================================
@@ -103,7 +108,7 @@ public class MainFrame extends JFrame {
         // Configurar ventana
         setTitle("Simulador de Sistema de Archivos - SO 2526-2");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1400, 850);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setMinimumSize(new Dimension(1200, 700));
         setLocationRelativeTo(null);
         getContentPane().setBackground(BG_DARK);
@@ -171,6 +176,11 @@ public class MainFrame extends JFrame {
         policyCombo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         policyCombo.setPreferredSize(new Dimension(100, 28));
         toolbar.add(policyCombo);
+
+        JButton btnRun = createActionButton("▶ Ejecutar", ACCENT_BLUE);
+        btnRun.addActionListener(e -> runScheduler());
+        toolbar.add(btnRun);
+
         toolbar.add(createSeparator());
 
         // Botones CRUD
@@ -428,6 +438,10 @@ public class MainFrame extends JFrame {
         JPanel statUsed  = createStatCard("Ocupados", "0", ACCENT_RED);
         JPanel statFree  = createStatCard("Libres", "200", ACCENT_TEAL);
         JPanel statFiles = createStatCard("Archivos", "0", ACCENT_BLUE);
+        statTotalValue = (JLabel) statTotal.getComponent(1);
+        statUsedValue  = (JLabel) statUsed.getComponent(1);
+        statFreeValue  = (JLabel) statFree.getComponent(1);
+        statFilesValue = (JLabel) statFiles.getComponent(1);
         statsPanel.add(statTotal);
         statsPanel.add(statUsed);
         statsPanel.add(statFree);
@@ -543,12 +557,13 @@ public class MainFrame extends JFrame {
             }
 
             // Journal: registrar antes de ejecutar
-            Journal.TransactionEntry tx = journal.beginTransaction("CREATE", path + "/" + name, owner, blocks);
+            String fullPath = path.equals("/") ? "/" + name : path + "/" + name;
+            Journal.TransactionEntry tx = journal.beginTransaction("CREATE", fullPath, owner, blocks);
 
             boolean success = fileSystem.createFile(name, owner, blocks, path);
             if (success) {
                 // Guardar el primer bloque para posible UNDO
-                FileEntry created = fileSystem.getEntryByPath(path + "/" + name);
+                FileEntry created = fileSystem.getEntryByPath(fullPath);
                 if (created != null) {
                     tx.setFirstBlock(created.getFirstBlock());
                 }
@@ -556,7 +571,7 @@ public class MainFrame extends JFrame {
                 logEvent("Archivo '" + name + "' creado en '" + path + "' (" + blocks + " bloques)");
 
                 // Crear proceso asociado
-                PCB process = new PCB(owner, PCB.IOOperation.CREATE, path + "/" + name,
+                PCB process = new PCB(owner, PCB.IOOperation.CREATE, fullPath,
                         created != null ? created.getFirstBlock() : 0);
                 processQueue.admitProcess(process);
                 processQueue.dispatchNext();
@@ -1001,17 +1016,10 @@ public class MainFrame extends JFrame {
     }
 
     private void refreshStats() {
-        // Actualizar stats cards
-        updateStatCard(0, "Total bloques", String.valueOf(fileSystem.getDisk().getTotalBlocks()), TEXT_PRIMARY);
-        updateStatCard(1, "Ocupados", String.valueOf(fileSystem.getDisk().getUsedBlocksCount()), ACCENT_RED);
-        updateStatCard(2, "Libres", String.valueOf(fileSystem.getDisk().getFreeBlocksCount()), ACCENT_TEAL);
-        updateStatCard(3, "Archivos", String.valueOf(fileSystem.getAllFiles().size()), ACCENT_BLUE);
-    }
-
-    private void updateStatCard(int index, String label, String value, Color color) {
-        // Buscar el panel de stats en el right panel
-        // Los stat cards se actualizan vía sus labels
-        // Este método se simplifica porque los labels ya están en refreshDisk
+        statTotalValue.setText(String.valueOf(fileSystem.getDisk().getTotalBlocks()));
+        statUsedValue.setText(String.valueOf(fileSystem.getDisk().getUsedBlocksCount()));
+        statFreeValue.setText(String.valueOf(fileSystem.getDisk().getFreeBlocksCount()));
+        statFilesValue.setText(String.valueOf(fileSystem.getAllFiles().size()));
     }
 
     // =======================================================
