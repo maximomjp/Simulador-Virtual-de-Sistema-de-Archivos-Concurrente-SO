@@ -11,7 +11,7 @@ import structures.Node;
  *
  * @author alemo
  */
-public class Diskscheduler {
+public class DiskScheduler {
     
  
     // =======================================================
@@ -34,7 +34,7 @@ public class Diskscheduler {
     // =======================================================
     // Constructor
     // =======================================================
-    public Diskscheduler(int initialHead, int totalCylinders) {
+    public DiskScheduler(int initialHead, int totalCylinders) {
         this.currentHeadPosition = initialHead;
         this.directionUp = true; // por defecto hacia arriba
         this.totalCylinders = totalCylinders;
