@@ -4,6 +4,17 @@
  */
 package simuladorarchivosso.mujicamorabito;
 
+import model.DiskScheduler;
+import structures.LinkedList;
+import model.LockManager;
+import model.UserManager;
+import model.FileEntry;
+import java.awt.Color;
+import model.Journal;
+import model.FileSystem;
+import model.JsonManager;
+import view.MainFrame;
+
 /**
  *
  * @author MaximoDev
@@ -15,6 +26,11 @@ public class SimuladorArchivosSOMujicaMorabito {
      */
     public static void main(String[] args) {
         // TODO code application logic here
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            MainFrame frame = new MainFrame();
+            frame.setVisible(true);
+        });
     }
-    
 }
+    
+
