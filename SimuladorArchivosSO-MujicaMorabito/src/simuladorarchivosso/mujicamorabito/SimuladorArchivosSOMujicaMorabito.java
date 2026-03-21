@@ -16,7 +16,6 @@ import model.JsonManager;
 import view.MainFrame;
 
 /**
- *
  * @author MaximoDev
  */
 public class SimuladorArchivosSOMujicaMorabito {
