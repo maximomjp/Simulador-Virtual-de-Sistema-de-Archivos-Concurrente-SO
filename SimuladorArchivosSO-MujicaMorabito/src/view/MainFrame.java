@@ -862,12 +862,12 @@ public class MainFrame extends JFrame {
                 while (orderNode != null) {
                     int destino = orderNode.data;
 
-                    // 1. Animar físicamente el cabezal hacia el destino (sea una pared o un bloque)
+                    // 1. Animar físicamente el cabezal hacia el destino
                     diskScheduler.setCurrentHeadPosition(destino);
-                    publish((PCB) null); // Disparar actualización de GUI (la advertencia roja ya está arreglada)
+                    publish((PCB) null); 
                     Thread.sleep(500);
 
-                    // 2. Buscar si hay un proceso en espera en esta posición exacta
+                    // 2. Buscar si hay un proceso en espera en esta posición
                     PCB pcbAProcesar = null;
                     Node<PCB> pcbNode = processQueue.getReadyQueue().getHead();
                     while (pcbNode != null) {
@@ -879,11 +879,35 @@ public class MainFrame extends JFrame {
                         pcbNode = pcbNode.next;
                     }
 
-                    // 3. Si encontramos un proceso real en esa posición, animar su ejecución
+                    // 3. Si encontramos un proceso, lo ejecutamos y registramos en el Journal
                     if (pcbAProcesar != null) {
+                        
+                        // --- FASE 1: REGISTRO EN JOURNAL (PENDING) ---
+                        Journal.TransactionEntry tx = null;
+                        PCB.IOOperation op = pcbAProcesar.getOperation();
+                        if (op == PCB.IOOperation.UPDATE || op == PCB.IOOperation.DELETE || op == PCB.IOOperation.CREATE) {
+                            tx = journal.beginTransaction(op.toString(), pcbAProcesar.getTargetPath(), pcbAProcesar.getOwner(), 0);
+                            publish((PCB) null); // Refresca la GUI para mostrar PENDING
+                        }
+
+                        // --- FASE 2: EJECUCIÓN ---
                         pcbAProcesar.start(); // READY -> RUNNING
                         publish(pcbAProcesar);
-                        Thread.sleep(600);
+                        Thread.sleep(600); // Tiempo que tarda en "escribir/leer"
+
+                        // --- FASE 3: VERIFICACIÓN DE FALLO (CRASH) ---
+                        if (tx != null && journal.isCrashSimulated()) {
+                            // Se intenta confirmar, pero el journal aborta internamente y lo deja PENDING
+                            journal.commitTransaction(tx);
+                            publish((PCB) null);
+                            logEvent("CRÍTICO: El sistema ha fallado repentinamente en el bloque " + destino + ".");
+                            break; // ¡ROMPEMOS EL CICLO! El sistema se detiene por completo.
+                        }
+
+                        // --- FASE 4: CONFIRMACIÓN DE ÉXITO (COMMITTED) ---
+                        if (tx != null) {
+                            journal.commitTransaction(tx);
+                        }
 
                         pcbAProcesar.terminate(); // RUNNING -> TERMINATED
                         removeFromReady(pcbAProcesar);
@@ -899,14 +923,19 @@ public class MainFrame extends JFrame {
 
             @Override
             protected void process(java.util.List<PCB> chunks) {
-                refreshAll();
+                refreshAll(); // Refresca todas las tablas, incluyendo el Journal
             }
 
             @Override
             protected void done() {
                 headPositionLabel.setText("Cabezal: " + diskScheduler.getCurrentHeadPosition());
                 refreshAll();
-                logEvent("Planificación completada.");
+                
+                if (journal.isCrashSimulated()) {
+                    logEvent("Simulación abortada debido al Crash. Se requiere RECUPERACIÓN.");
+                } else {
+                    logEvent("Planificación completada con éxito.");
+                }
             }
         };
 
