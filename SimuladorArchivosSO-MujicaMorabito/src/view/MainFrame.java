@@ -10,6 +10,7 @@ import javax.swing.tree.*;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
+import structures.Queue;
 
 public class MainFrame extends JFrame {
 
@@ -823,7 +824,6 @@ public class MainFrame extends JFrame {
     // EJECUCIÓN DE PLANIFICACIÓN
     // =======================================================
     public void runScheduler() {
-        // Recoger posiciones de procesos ready
         LinkedList<Integer> requests = new LinkedList<>();
         Node<PCB> current = processQueue.getReadyQueue().getHead();
         while (current != null) {
@@ -840,28 +840,120 @@ public class MainFrame extends JFrame {
         switch (policyCombo.getSelectedIndex()) {
             case 1: policy = DiskScheduler.Policy.SSTF;  break;
             case 2: policy = DiskScheduler.Policy.SCAN;  break;
-            case 3: policy = DiskScheduler.Policy.CSCAN;  break;
-            default: policy = DiskScheduler.Policy.FIFO;  break;
+            case 3: policy = DiskScheduler.Policy.CSCAN; break;
+            default: policy = DiskScheduler.Policy.FIFO; break;
         }
 
         LinkedList<Integer> order = diskScheduler.schedule(requests, policy);
+
+        // Ahora usamos SOLO los métodos genéricos ya que DiskScheduler está arreglado
         int totalMovement = diskScheduler.calculateTotalMovement(order);
+        String ordenStr   = diskScheduler.orderToString(order);
 
-        logEvent("Planificación " + policy + ": " + diskScheduler.orderToString(order));
+        logEvent("Planificación " + policy + ": " + ordenStr);
         logEvent("Movimiento total: " + totalMovement);
-
         totalMovementLabel.setText("| Movimiento: " + totalMovement);
 
-        // Despachar procesos en orden
-        // (simplificado: despachar y terminar secuencialmente)
-        Node<Integer> orderNode = order.getHead();
-        while (orderNode != null) {
-            diskScheduler.setCurrentHeadPosition(orderNode.data);
-            orderNode = orderNode.next;
-        }
+        SwingWorker<Void, PCB> worker = new SwingWorker<Void, PCB>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                Node<Integer> orderNode = order.getHead();
 
-        headPositionLabel.setText("Cabezal: " + diskScheduler.getCurrentHeadPosition());
-        refreshAll();
+                while (orderNode != null) {
+                    int destino = orderNode.data;
+
+                    // 1. Animar físicamente el cabezal hacia el destino
+                    diskScheduler.setCurrentHeadPosition(destino);
+                    publish((PCB) null); 
+                    Thread.sleep(500);
+
+                    // 2. Buscar si hay un proceso en espera en esta posición
+                    PCB pcbAProcesar = null;
+                    Node<PCB> pcbNode = processQueue.getReadyQueue().getHead();
+                    while (pcbNode != null) {
+                        if (pcbNode.data.getDiskPosition() == destino
+    && (pcbNode.data.getState() == PCB.ProcessState.READY || pcbNode.data.getState().toString().equals("RUNNING"))) {
+                            pcbAProcesar = pcbNode.data;
+                            break;
+                        }
+                        pcbNode = pcbNode.next;
+                    }
+
+                    // 3. Si encontramos un proceso, lo ejecutamos y registramos en el Journal
+                    if (pcbAProcesar != null) {
+                        
+                        // --- FASE 1: REGISTRO EN JOURNAL (PENDING) ---
+                        Journal.TransactionEntry tx = null;
+                        PCB.IOOperation op = pcbAProcesar.getOperation();
+                        if (op == PCB.IOOperation.UPDATE || op == PCB.IOOperation.DELETE || op == PCB.IOOperation.CREATE) {
+                            tx = journal.beginTransaction(op.toString(), pcbAProcesar.getTargetPath(), pcbAProcesar.getOwner(), 0);
+                            publish((PCB) null); // Refresca la GUI para mostrar PENDING
+                        }
+
+                        // --- FASE 2: EJECUCIÓN ---
+                        pcbAProcesar.start(); // READY -> RUNNING
+                        publish(pcbAProcesar);
+                        Thread.sleep(600); // Tiempo que tarda en "escribir/leer"
+
+                        // --- FASE 3: VERIFICACIÓN DE FALLO (CRASH) ---
+                        if (tx != null && journal.isCrashSimulated()) {
+                            // Se intenta confirmar, pero el journal aborta internamente y lo deja PENDING
+                            journal.commitTransaction(tx);
+                            publish((PCB) null);
+                            logEvent("CRÍTICO: El sistema ha fallado repentinamente en el bloque " + destino + ".");
+                            break; // ¡ROMPEMOS EL CICLO! El sistema se detiene por completo.
+                        }
+
+                        // --- FASE 4: CONFIRMACIÓN DE ÉXITO (COMMITTED) ---
+                        if (tx != null) {
+                            journal.commitTransaction(tx);
+                        }
+
+                        pcbAProcesar.terminate(); // RUNNING -> TERMINATED
+                        removeFromReady(pcbAProcesar);
+                        processQueue.getTerminatedList().addLast(pcbAProcesar);
+                        publish(pcbAProcesar);
+                        Thread.sleep(200);
+                    }
+
+                    orderNode = orderNode.next;
+                }
+                return null;
+            }
+
+            @Override
+            protected void process(java.util.List<PCB> chunks) {
+                refreshAll(); // Refresca todas las tablas, incluyendo el Journal
+            }
+
+            @Override
+            protected void done() {
+                headPositionLabel.setText("Cabezal: " + diskScheduler.getCurrentHeadPosition());
+                refreshAll();
+                
+                if (journal.isCrashSimulated()) {
+                    logEvent("Simulación abortada debido al Crash. Se requiere RECUPERACIÓN.");
+                } else {
+                    logEvent("Planificación completada con éxito.");
+                }
+            }
+        };
+
+        worker.execute();
+    }
+
+    // ─── Método auxiliar: quitar un PCB específico de la readyQueue ───
+    private void removeFromReady(PCB target) {
+        Queue<PCB> temp = new Queue<>();
+        while (!processQueue.getReadyQueue().isEmpty()) {
+            PCB p = processQueue.getReadyQueue().dequeue();
+            if (p.getPid() != target.getPid()) {
+                temp.enqueue(p);
+            }
+        }
+        while (!temp.isEmpty()) {
+            processQueue.getReadyQueue().enqueue(temp.dequeue());
+        }
     }
 
     // =======================================================
