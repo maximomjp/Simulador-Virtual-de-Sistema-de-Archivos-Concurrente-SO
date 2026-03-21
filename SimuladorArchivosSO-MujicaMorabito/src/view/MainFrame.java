@@ -127,7 +127,32 @@ public class MainFrame extends JFrame {
     // TOOLBAR SUPERIOR
     // =======================================================
     private JPanel buildToolbar() {
-        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6));
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 6)) {
+            @Override
+            public Dimension getPreferredSize() {
+                return getMinimumSize();
+            }
+            @Override
+            public Dimension getMinimumSize() {
+                int width = getParent() != null ? getParent().getWidth() : 800;
+                if (width == 0) width = 800;
+                Insets insets = getInsets();
+                int x = insets.left;
+                int y = insets.top;
+                int rowHeight = 0;
+                for (Component c : getComponents()) {
+                    Dimension d = c.getPreferredSize();
+                    if (x + d.width + insets.right > width) {
+                        x = insets.left;
+                        y += rowHeight + 6;
+                        rowHeight = 0;
+                    }
+                    x += d.width + 8;
+                    rowHeight = Math.max(rowHeight, d.height);
+                }
+                return new Dimension(width, y + rowHeight + insets.bottom + 6);
+            }
+        };
         toolbar.setBackground(BG_PANEL);
         toolbar.setBorder(new MatteBorder(0, 0, 1, 0, BORDER_COLOR));
 
