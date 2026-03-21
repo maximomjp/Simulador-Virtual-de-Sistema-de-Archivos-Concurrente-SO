@@ -882,7 +882,7 @@ public class MainFrame extends JFrame {
                 publish(pcb);
 
                 // 2. Simular tiempo de procesamiento (500ms por solicitud)
-                Thread.sleep(500);
+                Thread.sleep(700);
 
                 // 3. Terminar el proceso
                 pcb.terminate();
