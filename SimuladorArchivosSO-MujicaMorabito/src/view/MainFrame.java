@@ -872,7 +872,7 @@ public class MainFrame extends JFrame {
                     Node<PCB> pcbNode = processQueue.getReadyQueue().getHead();
                     while (pcbNode != null) {
                         if (pcbNode.data.getDiskPosition() == destino
-                                && pcbNode.data.getState() == PCB.ProcessState.READY) {
+    && (pcbNode.data.getState() == PCB.ProcessState.READY || pcbNode.data.getState().toString().equals("RUNNING"))) {
                             pcbAProcesar = pcbNode.data;
                             break;
                         }
