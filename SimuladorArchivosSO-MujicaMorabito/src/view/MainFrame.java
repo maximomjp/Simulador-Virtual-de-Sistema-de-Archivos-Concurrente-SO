@@ -10,6 +10,7 @@ import javax.swing.tree.*;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.*;
+import structures.Queue;
 
 public class MainFrame extends JFrame {
 
@@ -823,47 +824,109 @@ public class MainFrame extends JFrame {
     // EJECUCIÓN DE PLANIFICACIÓN
     // =======================================================
     public void runScheduler() {
-        // Recoger posiciones de procesos ready
-        LinkedList<Integer> requests = new LinkedList<>();
-        Node<PCB> current = processQueue.getReadyQueue().getHead();
-        while (current != null) {
-            requests.addLast(current.data.getDiskPosition());
-            current = current.next;
-        }
-
-        if (requests.isEmpty()) {
-            logEvent("No hay solicitudes en cola para planificar.");
-            return;
-        }
-
-        DiskScheduler.Policy policy;
-        switch (policyCombo.getSelectedIndex()) {
-            case 1: policy = DiskScheduler.Policy.SSTF;  break;
-            case 2: policy = DiskScheduler.Policy.SCAN;  break;
-            case 3: policy = DiskScheduler.Policy.CSCAN;  break;
-            default: policy = DiskScheduler.Policy.FIFO;  break;
-        }
-
-        LinkedList<Integer> order = diskScheduler.schedule(requests, policy);
-        int totalMovement = diskScheduler.calculateTotalMovement(order);
-
-        logEvent("Planificación " + policy + ": " + diskScheduler.orderToString(order));
-        logEvent("Movimiento total: " + totalMovement);
-
-        totalMovementLabel.setText("| Movimiento: " + totalMovement);
-
-        // Despachar procesos en orden
-        // (simplificado: despachar y terminar secuencialmente)
-        Node<Integer> orderNode = order.getHead();
-        while (orderNode != null) {
-            diskScheduler.setCurrentHeadPosition(orderNode.data);
-            orderNode = orderNode.next;
-        }
-
-        headPositionLabel.setText("Cabezal: " + diskScheduler.getCurrentHeadPosition());
-        refreshAll();
+    LinkedList<Integer> requests = new LinkedList<>();
+    Node<PCB> current = processQueue.getReadyQueue().getHead();
+    while (current != null) {
+        requests.addLast(current.data.getDiskPosition());
+        current = current.next;
     }
 
+    if (requests.isEmpty()) {
+        logEvent("No hay solicitudes en cola para planificar.");
+        return;
+    }
+
+    DiskScheduler.Policy policy;
+    switch (policyCombo.getSelectedIndex()) {
+        case 1: policy = DiskScheduler.Policy.SSTF;  break;
+        case 2: policy = DiskScheduler.Policy.SCAN;  break;
+        case 3: policy = DiskScheduler.Policy.CSCAN; break;
+        default: policy = DiskScheduler.Policy.FIFO; break;
+    }
+
+    LinkedList<Integer> order = diskScheduler.schedule(requests, policy);
+    int totalMovement = diskScheduler.calculateTotalMovement(order);
+
+    logEvent("Planificación " + policy + ": " + diskScheduler.orderToString(order));
+    logEvent("Movimiento total: " + totalMovement);
+    totalMovementLabel.setText("| Movimiento: " + totalMovement);
+
+    // Construir lista ordenada de PCBs según el orden del planificador
+    LinkedList<PCB> orderedPCBs = new LinkedList<>();
+    Node<Integer> orderNode = order.getHead();
+    while (orderNode != null) {
+        int diskPos = orderNode.data;
+        Node<PCB> pcbNode = processQueue.getReadyQueue().getHead();
+        while (pcbNode != null) {
+            if (pcbNode.data.getDiskPosition() == diskPos
+                    && pcbNode.data.getState() == PCB.ProcessState.READY) {
+                orderedPCBs.addLast(pcbNode.data);
+                break;
+            }
+            pcbNode = pcbNode.next;
+        }
+        orderNode = orderNode.next;
+    }
+
+    // SwingWorker: animar paso a paso sin congelar la GUI
+    SwingWorker<Void, PCB> worker = new SwingWorker<Void, PCB>() {
+        @Override
+        protected Void doInBackground() throws Exception {
+            Node<PCB> node = orderedPCBs.getHead();
+            while (node != null) {
+                PCB pcb = node.data;
+
+                // 1. Pasar a RUNNING y publicar para que la GUI se actualice
+                pcb.start();
+                diskScheduler.setCurrentHeadPosition(pcb.getDiskPosition());
+                publish(pcb);
+
+                // 2. Simular tiempo de procesamiento (500ms por solicitud)
+                Thread.sleep(500);
+
+                // 3. Terminar el proceso
+                pcb.terminate();
+                removeFromReady(pcb);
+                processQueue.getTerminatedList().addLast(pcb);
+                publish(pcb);
+
+                Thread.sleep(200);
+                node = node.next;
+            }
+            return null;
+        }
+
+        // Se llama en el hilo de Swing cada vez que se hace publish()
+        @Override
+        protected void process(java.util.List<PCB> chunks) {
+            refreshAll();
+        }
+
+        // Se llama cuando termina todo
+        @Override
+        protected void done() {
+            headPositionLabel.setText("Cabezal: " + diskScheduler.getCurrentHeadPosition());
+            refreshAll();
+            logEvent("Planificación completada.");
+        }
+    };
+
+    worker.execute();
+}
+
+// ─── Método auxiliar: quitar un PCB específico de la readyQueue ───
+private void removeFromReady(PCB target) {
+    Queue<PCB> temp = new Queue<>();
+    while (!processQueue.getReadyQueue().isEmpty()) {
+        PCB p = processQueue.getReadyQueue().dequeue();
+        if (p.getPid() != target.getPid()) {
+            temp.enqueue(p);
+        }
+    }
+    while (!temp.isEmpty()) {
+        processQueue.getReadyQueue().enqueue(temp.dequeue());
+    }
+}
     // =======================================================
     // REFRESH DE TODA LA GUI
     // =======================================================
