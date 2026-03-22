@@ -683,6 +683,14 @@ public class MainFrame extends JFrame {
                 return;
             }
 
+            // --- NUEVA VALIDACIÓN: Verificar que el archivo/directorio existe ---
+            FileEntry target = fileSystem.getEntryByPath(path);
+            if (target == null) {
+                showError("El archivo o directorio '" + path + "' no existe. Verifica la ruta.");
+                return; // Corta la ejecución para evitar el error
+            }
+            // ------------------------------------------------------------------
+
             boolean success = fileSystem.renameEntry(path, newName, userManager.getCurrentUser());
             if (success) {
                 logEvent("'" + path + "' renombrado a '" + newName + "'");
@@ -702,6 +710,14 @@ public class MainFrame extends JFrame {
         String path = JOptionPane.showInputDialog(this, "Ruta del archivo/directorio a eliminar:", "Eliminar", JOptionPane.PLAIN_MESSAGE);
         if (path != null && !path.trim().isEmpty()) {
             path = path.trim();
+
+            // --- NUEVA VALIDACIÓN: Verificar que el archivo/directorio existe ---
+            FileEntry target = fileSystem.getEntryByPath(path);
+            if (target == null) {
+                showError("El archivo o directorio '" + path + "' no existe. Verifica la ruta.");
+                return; // Corta la ejecución para que no se registre basura en el Journal
+            }
+            // ------------------------------------------------------------------
 
             Journal.TransactionEntry tx = journal.beginTransaction("DELETE", path, userManager.getCurrentUser(), 0);
 
