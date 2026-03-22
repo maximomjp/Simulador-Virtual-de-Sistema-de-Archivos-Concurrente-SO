@@ -826,30 +826,72 @@ public class MainFrame extends JFrame {
     // SELECCIÓN EN EL JTREE
     // =======================================================
     private void onTreeSelection() {
-        TreePath path = fileTree.getSelectionPath();
-        if (path == null) return;
+        javax.swing.tree.DefaultMutableTreeNode selectedNode = 
+            (javax.swing.tree.DefaultMutableTreeNode) fileTree.getLastSelectedPathComponent();
 
-        // Construir la ruta del archivo seleccionado
-        StringBuilder fsPath = new StringBuilder();
-        Object[] nodes = path.getPath();
-        for (int i = 1; i < nodes.length; i++) {
-            String nodeName = nodes[i].toString();
-            // Limpiar prefijos de visualización
-            if (nodeName.contains(" ")) {
-                nodeName = nodeName.substring(nodeName.lastIndexOf(" ") + 1);
-            }
-            fsPath.append("/").append(nodeName);
+        if (selectedNode == null) {
+            resetFileInfo();
+            return;
         }
 
-        String fullPath = fsPath.length() == 0 ? "/" : fsPath.toString();
+        javax.swing.tree.TreeNode[] pathNodes = selectedNode.getPath();
+        StringBuilder pathBuilder = new StringBuilder();
+
+        for (int i = 0; i < pathNodes.length; i++) {
+            String nodeName = pathNodes[i].toString();
+            
+            // 1. Quitar el sufijo " : X bloques"
+            if (nodeName.contains(":")) {
+                nodeName = nodeName.substring(0, nodeName.indexOf(":")).trim();
+            } else {
+                nodeName = nodeName.trim();
+            }
+            
+            // 2. LA ASPIRADORA: Elimina íconos ocultos (?) y espacios al inicio
+            // Protegemos el root para que no se borre su símbolo "/"
+            if (!nodeName.equals("/ (root)") && !nodeName.equals("/")) {
+                // Borra todo lo que no sea una letra, número, punto o guion al inicio
+                nodeName = nodeName.replaceFirst("^[^a-zA-Z0-9_\\.\\-]+", "");
+            }
+            
+            // 3. Construir la ruta
+            if (nodeName.equals("/ (root)") || nodeName.equals("/")) {
+                pathBuilder.append("/");
+            } else {
+                if (pathBuilder.length() > 1) { 
+                    pathBuilder.append("/");
+                }
+                pathBuilder.append(nodeName);
+            }
+        }
+
+        String fullPath = pathBuilder.toString();
+
+        // 4. Buscar el archivo limpio en tu backend
         FileEntry entry = fileSystem.getEntryByPath(fullPath);
 
+        // 5. Mostrar los datos
         if (entry != null) {
             statTotalLabel.setText("Nombre: " + entry.getName());
             statUsedLabel.setText("Dueño: " + entry.getOwner());
-            statFreeLabel.setText("Bloques: " + entry.getTotalBlocks());
-            statFilesLabel.setText("Primer bloque: " + (entry.getFirstBlock() >= 0 ? entry.getFirstBlock() : "N/A"));
+            
+            if (entry.isDirectory()) {
+                statFreeLabel.setText("Bloques: - (Directorio)");
+                statFilesLabel.setText("Primer bloque: -");
+            } else {
+                statFreeLabel.setText("Bloques: " + entry.getTotalBlocks());
+                statFilesLabel.setText("Primer bloque: " + entry.getFirstBlock());
+            }
+        } else {
+            resetFileInfo();
         }
+    }
+    // Método auxiliar para limpiar las etiquetas
+    private void resetFileInfo() {
+        statTotalLabel.setText("Nombre: -");
+        statUsedLabel.setText("Dueño: -");
+        statFreeLabel.setText("Bloques: -");
+        statFilesLabel.setText("Primer bloque: -");
     }
 
     // =======================================================
