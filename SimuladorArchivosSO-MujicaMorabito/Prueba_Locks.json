@@ -1,0 +1,12 @@
+{
+  "test_id": "Test_Locks_Concurrencia",
+  "initial_head": 50,
+  "requests": [
+    {"pos": 62, "op": "UPDATE"},
+    {"pos": 62, "op": "UPDATE"},
+    {"pos": 62, "op": "READ"}
+  ],
+  "system_files": {
+    "62": {"name": "archivo_compartido.txt", "blocks": 5}
+  }
+}
