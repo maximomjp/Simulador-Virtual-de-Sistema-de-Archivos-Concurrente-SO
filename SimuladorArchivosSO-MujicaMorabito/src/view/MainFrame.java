@@ -582,6 +582,14 @@ public class MainFrame extends JFrame {
                 return;
             }
 
+            // --- NUEVA VALIDACIÓN: Verificar que el directorio padre existe ---
+            FileEntry parentDir = fileSystem.getEntryByPath(path);
+            if (parentDir == null || !parentDir.isDirectory()) {
+                showError("El directorio padre '" + path + "' no existe. Verifica la ruta.");
+                return; // Corta la ejecución para que no se registre en el Journal
+            }
+            // ------------------------------------------------------------------
+
             // Journal: registrar antes de ejecutar
             String fullPath = path.equals("/") ? "/" + name : path + "/" + name;
             Journal.TransactionEntry tx = journal.beginTransaction("CREATE", fullPath, owner, blocks);
@@ -632,6 +640,14 @@ public class MainFrame extends JFrame {
                 showError("El nombre es obligatorio.");
                 return;
             }
+
+            // --- NUEVA VALIDACIÓN: Verificar que el directorio padre existe ---
+            FileEntry parentDir = fileSystem.getEntryByPath(path);
+            if (parentDir == null || !parentDir.isDirectory()) {
+                showError("El directorio padre '" + path + "' no existe. Verifica la ruta.");
+                return; // Corta la ejecución para que no intente crearlo en el limbo
+            }
+            // ------------------------------------------------------------------
 
             boolean success = fileSystem.createDirectory(name, userManager.getCurrentUser(), path);
             if (success) {
