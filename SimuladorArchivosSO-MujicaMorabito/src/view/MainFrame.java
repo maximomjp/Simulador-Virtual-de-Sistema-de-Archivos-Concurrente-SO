@@ -878,7 +878,6 @@ public class MainFrame extends JFrame {
 
         LinkedList<Integer> order = diskScheduler.schedule(requests, policy);
 
-        // Ahora usamos SOLO los métodos genéricos ya que DiskScheduler está arreglado
         int totalMovement = diskScheduler.calculateTotalMovement(order);
         String ordenStr   = diskScheduler.orderToString(order);
 
@@ -911,29 +910,57 @@ public class MainFrame extends JFrame {
                         pcbNode = pcbNode.next;
                     }
 
-                    // 3. Si encontramos un proceso, lo ejecutamos y registramos en el Journal
+                    // 3. Si encontramos un proceso, lo ejecutamos
                     if (pcbAProcesar != null) {
                         
+                        // --- FASE 0: GESTIÓN DE LOCKS Y CONCURRENCIA ---
+                        String targetFile = pcbAProcesar.getTargetPath();
+                        if (targetFile != null && !targetFile.isEmpty()) {
+                            LockManager.LockType lockType = (pcbAProcesar.getOperation() == PCB.IOOperation.READ) 
+                                    ? LockManager.LockType.SHARED 
+                                    : LockManager.LockType.EXCLUSIVE;
+                            
+                            lockManager.acquireLock(targetFile, pcbAProcesar.getPid(), lockType);
+
+                            // Buscar y bloquear procesos conflictivos
+                            Node<PCB> tempNode = processQueue.getReadyQueue().getHead();
+                            while (tempNode != null) {
+                                if (tempNode.data.getState() == PCB.ProcessState.READY && tempNode.data.getPid() != pcbAProcesar.getPid()) {
+                                    String otherFile = tempNode.data.getTargetPath();
+                                    if (otherFile != null && otherFile.equals(targetFile)) {
+                                        boolean conflict = false;
+                                        if (tempNode.data.getOperation() == PCB.IOOperation.READ) {
+                                            if (lockManager.isLockedForRead(otherFile, tempNode.data.getPid())) conflict = true;
+                                        } else {
+                                            if (lockManager.isLockedForWrite(otherFile, tempNode.data.getPid())) conflict = true;
+                                        }
+                                        if (conflict) {
+                                            tempNode.data.setState(PCB.ProcessState.BLOCKED);
+                                        }
+                                    }
+                                }
+                                tempNode = tempNode.next;
+                            }
+                        }
+
                         // --- FASE 1: REGISTRO EN JOURNAL (PENDING) ---
                         Journal.TransactionEntry tx = null;
                         PCB.IOOperation op = pcbAProcesar.getOperation();
                         if (op == PCB.IOOperation.UPDATE || op == PCB.IOOperation.DELETE || op == PCB.IOOperation.CREATE) {
                             tx = journal.beginTransaction(op.toString(), pcbAProcesar.getTargetPath(), pcbAProcesar.getOwner(), 0);
-                            publish((PCB) null); // Refresca la GUI para mostrar PENDING
                         }
 
                         // --- FASE 2: EJECUCIÓN ---
                         pcbAProcesar.start(); // READY -> RUNNING
-                        publish(pcbAProcesar);
-                        Thread.sleep(600); // Tiempo que tarda en "escribir/leer"
+                        publish(pcbAProcesar); // Actualiza la GUI mostrando los LOCKS y los BLOCKED
+                        Thread.sleep(1500); // Pausa extendida para poder visualizar el bloqueo
 
                         // --- FASE 3: VERIFICACIÓN DE FALLO (CRASH) ---
                         if (tx != null && journal.isCrashSimulated()) {
-                            // Se intenta confirmar, pero el journal aborta internamente y lo deja PENDING
                             journal.commitTransaction(tx);
                             publish((PCB) null);
                             logEvent("CRÍTICO: El sistema ha fallado repentinamente en el bloque " + destino + ".");
-                            break; // ¡ROMPEMOS EL CICLO! El sistema se detiene por completo.
+                            break; // ¡ROMPEMOS EL CICLO!
                         }
 
                         // --- FASE 4: CONFIRMACIÓN DE ÉXITO (COMMITTED) ---
@@ -944,6 +971,20 @@ public class MainFrame extends JFrame {
                         pcbAProcesar.terminate(); // RUNNING -> TERMINATED
                         removeFromReady(pcbAProcesar);
                         processQueue.getTerminatedList().addLast(pcbAProcesar);
+                        
+                        // --- FASE 5: LIBERAR LOCKS Y DESPERTAR PROCESOS ---
+                        if (targetFile != null && !targetFile.isEmpty()) {
+                            lockManager.releaseAllLocks(pcbAProcesar.getPid());
+
+                            Node<PCB> tempNode = processQueue.getReadyQueue().getHead();
+                            while (tempNode != null) {
+                                if (tempNode.data.getState() == PCB.ProcessState.BLOCKED) {
+                                    tempNode.data.setState(PCB.ProcessState.READY);
+                                }
+                                tempNode = tempNode.next;
+                            }
+                        }
+
                         publish(pcbAProcesar);
                         Thread.sleep(200);
                     }
@@ -955,7 +996,7 @@ public class MainFrame extends JFrame {
 
             @Override
             protected void process(java.util.List<PCB> chunks) {
-                refreshAll(); // Refresca todas las tablas, incluyendo el Journal
+                refreshAll(); // Refresca todas las tablas, incluyendo Journal y Locks
             }
 
             @Override
