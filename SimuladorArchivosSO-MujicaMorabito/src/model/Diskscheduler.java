@@ -98,17 +98,11 @@ public class DiskScheduler {
 
         if (directionUp) {
             appendAll(result, sortedRight);
-            // Si hay peticiones abajo, DEBE rebotar en la pared superior
-            if (!sortedLeft.isEmpty()) {
-                result.addLast(totalCylinders - 1);
-            }
+            // ELIMINADO: result.addLast(totalCylinders - 1); 
             appendAll(result, sortedLeft);
         } else {
             appendAll(result, sortedLeft);
-            // Si hay peticiones arriba, DEBE rebotar en la pared inferior
-            if (!sortedRight.isEmpty()) {
-                result.addLast(0);
-            }
+            // ELIMINADO: result.addLast(0);
             appendAll(result, sortedRight);
         }
 
@@ -135,17 +129,13 @@ public class DiskScheduler {
 
         if (directionUp) {
             appendAll(result, sortAscending(right));
-            if (!left.isEmpty()) {
-                result.addLast(totalCylinders - 1); // Toca la pared superior
-                result.addLast(0);                  // Salto circular al inicio
-            }
+            // ELIMINADO: result.addLast(totalCylinders - 1); 
+            // ELIMINADO: result.addLast(0);
             appendAll(result, sortAscending(left));
         } else {
             appendAll(result, sortDescending(left));
-            if (!right.isEmpty()) {
-                result.addLast(0);                  // Toca la pared inferior
-                result.addLast(totalCylinders - 1); // Salto circular al final
-            }
+            // ELIMINADO: result.addLast(0);
+            // ELIMINADO: result.addLast(totalCylinders - 1);
             appendAll(result, sortDescending(right));
         }
 
