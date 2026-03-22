@@ -582,6 +582,14 @@ public class MainFrame extends JFrame {
                 return;
             }
 
+            // --- NUEVA VALIDACIÓN: Verificar que el directorio padre existe ---
+            FileEntry parentDir = fileSystem.getEntryByPath(path);
+            if (parentDir == null || !parentDir.isDirectory()) {
+                showError("El directorio padre '" + path + "' no existe. Verifica la ruta.");
+                return; // Corta la ejecución para que no se registre en el Journal
+            }
+            // ------------------------------------------------------------------
+
             // Journal: registrar antes de ejecutar
             String fullPath = path.equals("/") ? "/" + name : path + "/" + name;
             Journal.TransactionEntry tx = journal.beginTransaction("CREATE", fullPath, owner, blocks);
@@ -633,6 +641,14 @@ public class MainFrame extends JFrame {
                 return;
             }
 
+            // --- NUEVA VALIDACIÓN: Verificar que el directorio padre existe ---
+            FileEntry parentDir = fileSystem.getEntryByPath(path);
+            if (parentDir == null || !parentDir.isDirectory()) {
+                showError("El directorio padre '" + path + "' no existe. Verifica la ruta.");
+                return; // Corta la ejecución para que no intente crearlo en el limbo
+            }
+            // ------------------------------------------------------------------
+
             boolean success = fileSystem.createDirectory(name, userManager.getCurrentUser(), path);
             if (success) {
                 logEvent("Directorio '" + name + "' creado en '" + path + "'");
@@ -667,6 +683,14 @@ public class MainFrame extends JFrame {
                 return;
             }
 
+            // --- NUEVA VALIDACIÓN: Verificar que el archivo/directorio existe ---
+            FileEntry target = fileSystem.getEntryByPath(path);
+            if (target == null) {
+                showError("El archivo o directorio '" + path + "' no existe. Verifica la ruta.");
+                return; // Corta la ejecución para evitar el error
+            }
+            // ------------------------------------------------------------------
+
             boolean success = fileSystem.renameEntry(path, newName, userManager.getCurrentUser());
             if (success) {
                 logEvent("'" + path + "' renombrado a '" + newName + "'");
@@ -686,6 +710,14 @@ public class MainFrame extends JFrame {
         String path = JOptionPane.showInputDialog(this, "Ruta del archivo/directorio a eliminar:", "Eliminar", JOptionPane.PLAIN_MESSAGE);
         if (path != null && !path.trim().isEmpty()) {
             path = path.trim();
+
+            // --- NUEVA VALIDACIÓN: Verificar que el archivo/directorio existe ---
+            FileEntry target = fileSystem.getEntryByPath(path);
+            if (target == null) {
+                showError("El archivo o directorio '" + path + "' no existe. Verifica la ruta.");
+                return; // Corta la ejecución para que no se registre basura en el Journal
+            }
+            // ------------------------------------------------------------------
 
             Journal.TransactionEntry tx = journal.beginTransaction("DELETE", path, userManager.getCurrentUser(), 0);
 
