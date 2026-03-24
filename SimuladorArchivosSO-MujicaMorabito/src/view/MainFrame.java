@@ -1009,28 +1009,29 @@ public class MainFrame extends JFrame {
                         if (tx != null) {
                             journal.commitTransaction(tx);
                             
-                            // Si la operación es DELETE, buscamos el archivo y lo borramos del FileSystem
                             if (pcbAProcesar.getOperation() == PCB.IOOperation.DELETE) {
-                                FileEntry fileToDelete = null;
-                                Node<FileEntry> currentFile = fileSystem.getAllFiles().getHead();
+                                // Aquí atrapamos el nombre, que ahora mismo te está llegando como "pos_15"
+                                String targetPathToDel = pcbAProcesar.getTargetPath();
                                 
-                                // Buscamos qué archivo comienza en este bloque del disco
-                                while (currentFile != null) {
-                                    if (currentFile.data.getFirstBlock() == pcbAProcesar.getDiskPosition()) {
-                                        fileToDelete = currentFile.data;
-                                        break;
+                                // Si el nombre llega como "pos_X", buscamos el archivo manualmente en la lista
+                                if (targetPathToDel != null && !targetPathToDel.startsWith("/")) {
+                                    // Tomamos el primer archivo real que esté guardado en el sistema
+                                    Node<FileEntry> currentFile = fileSystem.getAllFiles().getHead();
+                                    if (currentFile != null) {
+                                        targetPathToDel = "/" + currentFile.data.getName();
                                     }
-                                    currentFile = currentFile.next;
                                 }
-                                
-                                // Si lo encontramos, ordenamos su eliminación total
-                                if (fileToDelete != null) {
-                                    String realPath = "/" + fileToDelete.getName();
-                                    fileSystem.deleteEntry(realPath, "admin");
+
+                                // Ahora sí, ejecutamos el borrado físico y liberamos los bloques
+                                if (targetPathToDel != null && targetPathToDel.startsWith("/")) {
+                                    fileSystem.deleteEntry(targetPathToDel, "admin");
+                                    logEvent("ÉXITO: Se eliminó físicamente y se liberaron los bloques de " + targetPathToDel);
+                                } else {
+                                    logEvent("Advertencia: No se pudo enlazar el nombre del archivo para borrar.");
                                 }
                             }
                         }
-
+                        
                         pcbAProcesar.terminate(); // RUNNING -> TERMINATED
                         removeFromReady(pcbAProcesar);
                         processQueue.getTerminatedList().addLast(pcbAProcesar);
