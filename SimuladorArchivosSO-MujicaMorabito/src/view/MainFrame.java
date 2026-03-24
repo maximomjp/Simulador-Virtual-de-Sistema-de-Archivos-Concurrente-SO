@@ -1005,11 +1005,33 @@ public class MainFrame extends JFrame {
                             break; // ¡ROMPEMOS EL CICLO!
                         }
 
-                        // --- FASE 4: CONFIRMACIÓN DE ÉXITO (COMMITTED) ---
+                        // --- FASE 4: CONFIRMACIÓN DE ÉXITO Y EJECUCIÓN FÍSICA ---
                         if (tx != null) {
                             journal.commitTransaction(tx);
-                        }
+                            
+                            if (pcbAProcesar.getOperation() == PCB.IOOperation.DELETE) {
+                                // Aquí atrapamos el nombre, que ahora mismo te está llegando como "pos_15"
+                                String targetPathToDel = pcbAProcesar.getTargetPath();
+                                
+                                // Si el nombre llega como "pos_X", buscamos el archivo manualmente en la lista
+                                if (targetPathToDel != null && !targetPathToDel.startsWith("/")) {
+                                    // Tomamos el primer archivo real que esté guardado en el sistema
+                                    Node<FileEntry> currentFile = fileSystem.getAllFiles().getHead();
+                                    if (currentFile != null) {
+                                        targetPathToDel = "/" + currentFile.data.getName();
+                                    }
+                                }
 
+                                // Ahora sí, ejecutamos el borrado físico y liberamos los bloques
+                                if (targetPathToDel != null && targetPathToDel.startsWith("/")) {
+                                    fileSystem.deleteEntry(targetPathToDel, "admin");
+                                    logEvent("ÉXITO: Se eliminó físicamente y se liberaron los bloques de " + targetPathToDel);
+                                } else {
+                                    logEvent("Advertencia: No se pudo enlazar el nombre del archivo para borrar.");
+                                }
+                            }
+                        }
+                        
                         pcbAProcesar.terminate(); // RUNNING -> TERMINATED
                         removeFromReady(pcbAProcesar);
                         processQueue.getTerminatedList().addLast(pcbAProcesar);
@@ -1038,7 +1060,7 @@ public class MainFrame extends JFrame {
 
             @Override
             protected void process(java.util.List<PCB> chunks) {
-                refreshAll(); // Refresca todas las tablas, incluyendo Journal y Locks
+                refreshAll(); // Refresca todas las tablas, dibujando los bloques liberados
             }
 
             @Override
