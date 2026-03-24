@@ -1,0 +1,11 @@
+{
+  "test_id": "Test_Visual_Completo",
+  "initial_head": 10,
+  "requests": [
+    {"pos": 20, "op": "UPDATE"},
+    {"pos": 50, "op": "CREATE"}
+  ],
+  "system_files": {
+    "20": {"name": "archivo_viejo.txt", "blocks": 4}
+  }
+}
