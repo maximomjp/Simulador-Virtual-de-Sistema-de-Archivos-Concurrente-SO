@@ -769,7 +769,20 @@ public class MainFrame extends JFrame {
                         case "DELETE": op = PCB.IOOperation.DELETE; break;
                         default:       op = PCB.IOOperation.READ;   break;
                     }
-                    PCB process = new PCB("admin", op, "pos_" + req.data.position, req.data.position);
+
+                    // ¡LA MAGIA REAL! Buscamos el nombre correcto mapeando la posición con los archivos del JSON
+                    String realName = "pos_" + req.data.position; 
+                    Node<JsonManager.SystemFile> sfNode = tc.systemFiles.getHead();
+                    while (sfNode != null) {
+                        if (sfNode.data.position == req.data.position) {
+                            realName = "/" + sfNode.data.name; // Ej: "/readme.txt"
+                            break;
+                        }
+                        sfNode = sfNode.next;
+                    }
+
+                    // Creamos el PCB inyectando directamente el nombre real
+                    PCB process = new PCB("admin", op, realName, req.data.position);
                     processQueue.admitProcess(process);
                     req = req.next;
                 }
@@ -989,7 +1002,13 @@ public class MainFrame extends JFrame {
                         Journal.TransactionEntry tx = null;
                         PCB.IOOperation op = pcbAProcesar.getOperation();
                         if (op == PCB.IOOperation.UPDATE || op == PCB.IOOperation.DELETE || op == PCB.IOOperation.CREATE) {
-                            tx = journal.beginTransaction(op.toString(), pcbAProcesar.getTargetPath(), pcbAProcesar.getOwner(), 0);
+                            
+                            // Obtenemos la ruta que ya viene perfecta desde el JSON
+                            String realNameForJournal = pcbAProcesar.getTargetPath();
+                            if (op == PCB.IOOperation.CREATE) {
+                                realNameForJournal = "/nuevo_archivo_PID" + pcbAProcesar.getPid() + ".bin";
+                            }
+                            tx = journal.beginTransaction(op.toString(), realNameForJournal, pcbAProcesar.getOwner(), 0);
                         }
 
                         // --- FASE 2: EJECUCIÓN ---
@@ -1009,21 +1028,14 @@ public class MainFrame extends JFrame {
                         if (tx != null) {
                             journal.commitTransaction(tx);
                             
-                            // 1. Intentamos obtener el nombre real
-                            String targetPathToMod = pcbAProcesar.getTargetPath();
-                            if (targetPathToMod != null && !targetPathToMod.startsWith("/")) {
-                                //Si no encontramos la ruta, tomamos el primer archivo del sistema
-                                Node<FileEntry> currentFile = fileSystem.getAllFiles().getHead();
-                                if (currentFile != null) {
-                                    targetPathToMod = "/" + currentFile.data.getName();
-                                }
-                            }
+                            String targetPathToMod = pcbAProcesar.getTargetPath(); // Ej: "/readme.txt"
 
-                            // 2. Ejecutamos la acción física según la operación
                             if (pcbAProcesar.getOperation() == PCB.IOOperation.DELETE) {
                                 if (targetPathToMod != null && targetPathToMod.startsWith("/")) {
                                     fileSystem.deleteEntry(targetPathToMod, "admin");
                                     logEvent("ÉXITO: Se eliminó y liberó memoria de " + targetPathToMod);
+                                } else {
+                                    logEvent("ERROR: Ruta inválida para eliminar.");
                                 }
                                 
                             } else if (pcbAProcesar.getOperation() == PCB.IOOperation.UPDATE) {
@@ -1032,16 +1044,17 @@ public class MainFrame extends JFrame {
                                     String newName = "modificado_PID" + pcbAProcesar.getPid() + ".txt";
                                     fileSystem.renameEntry(oldName, newName, "admin");
                                     logEvent("ÉXITO: Se renombró " + oldName + " a /" + newName);
+                                } else {
+                                    logEvent("ERROR: Ruta inválida para actualizar.");
                                 }
                                 
                             } else if (pcbAProcesar.getOperation() == PCB.IOOperation.CREATE) {
-                                // Creamos un archivo nuevo de 4 bloques en tiempo real
                                 String newName = "creado_PID" + pcbAProcesar.getPid() + ".bin";
                                 boolean success = fileSystem.createFile(newName, "admin", 4, "/");
                                 if (success) {
                                     logEvent("ÉXITO: Se asignaron bloques y se creó /" + newName);
                                 } else {
-                                    logEvent("ERROR: No hubo espacio para crear el archivo.");
+                                    logEvent("ERROR: No hubo espacio en disco.");
                                 }
                             }
                         }
