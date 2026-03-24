@@ -1005,9 +1005,30 @@ public class MainFrame extends JFrame {
                             break; // ¡ROMPEMOS EL CICLO!
                         }
 
-                        // --- FASE 4: CONFIRMACIÓN DE ÉXITO (COMMITTED) ---
+                        // --- FASE 4: CONFIRMACIÓN DE ÉXITO Y EJECUCIÓN FÍSICA ---
                         if (tx != null) {
                             journal.commitTransaction(tx);
+                            
+                            // Si la operación es DELETE, buscamos el archivo y lo borramos del FileSystem
+                            if (pcbAProcesar.getOperation() == PCB.IOOperation.DELETE) {
+                                FileEntry fileToDelete = null;
+                                Node<FileEntry> currentFile = fileSystem.getAllFiles().getHead();
+                                
+                                // Buscamos qué archivo comienza en este bloque del disco
+                                while (currentFile != null) {
+                                    if (currentFile.data.getFirstBlock() == pcbAProcesar.getDiskPosition()) {
+                                        fileToDelete = currentFile.data;
+                                        break;
+                                    }
+                                    currentFile = currentFile.next;
+                                }
+                                
+                                // Si lo encontramos, ordenamos su eliminación total
+                                if (fileToDelete != null) {
+                                    String realPath = "/" + fileToDelete.getName();
+                                    fileSystem.deleteEntry(realPath, "admin");
+                                }
+                            }
                         }
 
                         pcbAProcesar.terminate(); // RUNNING -> TERMINATED
@@ -1038,7 +1059,7 @@ public class MainFrame extends JFrame {
 
             @Override
             protected void process(java.util.List<PCB> chunks) {
-                refreshAll(); // Refresca todas las tablas, incluyendo Journal y Locks
+                refreshAll(); // Refresca todas las tablas, dibujando los bloques liberados
             }
 
             @Override
