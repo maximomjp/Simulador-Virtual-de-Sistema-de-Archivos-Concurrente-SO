@@ -1009,16 +1009,13 @@ public class MainFrame extends JFrame {
                         if (tx != null) {
                             journal.commitTransaction(tx);
                             
-                            // 1. Intentamos obtener el nombre real mapeando la posición del disco
+                            // 1. Intentamos obtener el nombre real
                             String targetPathToMod = pcbAProcesar.getTargetPath();
                             if (targetPathToMod != null && !targetPathToMod.startsWith("/")) {
+                                //Si no encontramos la ruta, tomamos el primer archivo del sistema
                                 Node<FileEntry> currentFile = fileSystem.getAllFiles().getHead();
-                                while (currentFile != null) {
-                                    if (currentFile.data.getFirstBlock() == pcbAProcesar.getDiskPosition()) {
-                                        targetPathToMod = "/" + currentFile.data.getName();
-                                        break;
-                                    }
-                                    currentFile = currentFile.next;
+                                if (currentFile != null) {
+                                    targetPathToMod = "/" + currentFile.data.getName();
                                 }
                             }
 
