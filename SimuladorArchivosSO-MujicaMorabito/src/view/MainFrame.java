@@ -1009,25 +1009,42 @@ public class MainFrame extends JFrame {
                         if (tx != null) {
                             journal.commitTransaction(tx);
                             
-                            if (pcbAProcesar.getOperation() == PCB.IOOperation.DELETE) {
-                                // Aquí atrapamos el nombre, que ahora mismo te está llegando como "pos_15"
-                                String targetPathToDel = pcbAProcesar.getTargetPath();
-                                
-                                // Si el nombre llega como "pos_X", buscamos el archivo manualmente en la lista
-                                if (targetPathToDel != null && !targetPathToDel.startsWith("/")) {
-                                    // Tomamos el primer archivo real que esté guardado en el sistema
-                                    Node<FileEntry> currentFile = fileSystem.getAllFiles().getHead();
-                                    if (currentFile != null) {
-                                        targetPathToDel = "/" + currentFile.data.getName();
+                            // 1. Intentamos obtener el nombre real mapeando la posición del disco
+                            String targetPathToMod = pcbAProcesar.getTargetPath();
+                            if (targetPathToMod != null && !targetPathToMod.startsWith("/")) {
+                                Node<FileEntry> currentFile = fileSystem.getAllFiles().getHead();
+                                while (currentFile != null) {
+                                    if (currentFile.data.getFirstBlock() == pcbAProcesar.getDiskPosition()) {
+                                        targetPathToMod = "/" + currentFile.data.getName();
+                                        break;
                                     }
+                                    currentFile = currentFile.next;
                                 }
+                            }
 
-                                // Ahora sí, ejecutamos el borrado físico y liberamos los bloques
-                                if (targetPathToDel != null && targetPathToDel.startsWith("/")) {
-                                    fileSystem.deleteEntry(targetPathToDel, "admin");
-                                    logEvent("ÉXITO: Se eliminó físicamente y se liberaron los bloques de " + targetPathToDel);
+                            // 2. Ejecutamos la acción física según la operación
+                            if (pcbAProcesar.getOperation() == PCB.IOOperation.DELETE) {
+                                if (targetPathToMod != null && targetPathToMod.startsWith("/")) {
+                                    fileSystem.deleteEntry(targetPathToMod, "admin");
+                                    logEvent("ÉXITO: Se eliminó y liberó memoria de " + targetPathToMod);
+                                }
+                                
+                            } else if (pcbAProcesar.getOperation() == PCB.IOOperation.UPDATE) {
+                                if (targetPathToMod != null && targetPathToMod.startsWith("/")) {
+                                    String oldName = targetPathToMod;
+                                    String newName = "modificado_PID" + pcbAProcesar.getPid() + ".txt";
+                                    fileSystem.renameEntry(oldName, newName, "admin");
+                                    logEvent("ÉXITO: Se renombró " + oldName + " a /" + newName);
+                                }
+                                
+                            } else if (pcbAProcesar.getOperation() == PCB.IOOperation.CREATE) {
+                                // Creamos un archivo nuevo de 4 bloques en tiempo real
+                                String newName = "creado_PID" + pcbAProcesar.getPid() + ".bin";
+                                boolean success = fileSystem.createFile(newName, "admin", 4, "/");
+                                if (success) {
+                                    logEvent("ÉXITO: Se asignaron bloques y se creó /" + newName);
                                 } else {
-                                    logEvent("Advertencia: No se pudo enlazar el nombre del archivo para borrar.");
+                                    logEvent("ERROR: No hubo espacio para crear el archivo.");
                                 }
                             }
                         }
