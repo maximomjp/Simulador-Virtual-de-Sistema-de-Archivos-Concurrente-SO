@@ -1,0 +1,12 @@
+{
+  "test_id": "Test_Borrado_Visual",
+  "initial_head": 10,
+  "requests": [
+    {"pos": 15, "op": "DELETE"},
+    {"pos": 40, "op": "READ"}
+  ],
+  "system_files": {
+    "15": {"name": "archivo_gigante.iso", "blocks": 30},
+    "40": {"name": "archivo_pequeno.txt", "blocks": 5}
+  }
+}
