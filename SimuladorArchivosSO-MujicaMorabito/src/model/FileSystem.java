@@ -1,8 +1,8 @@
 package model;
 
+import java.awt.Color;
 import structures.LinkedList;
 import structures.Node;
-import java.awt.Color;
 
 public class FileSystem {
 
@@ -21,7 +21,7 @@ public class FileSystem {
     // =======================================================
 
     // -------------------------------------------------------
-    // CREATE - Crear archivo
+    // CREATE - Crear archivo (Asignación libre por GUI)
     // -------------------------------------------------------
     public boolean createFile(String name, String owner, int numBlocks, String parentPath) {
         // Validaciones
@@ -66,6 +66,56 @@ public class FileSystem {
         allFiles.addLast(newFile);
 
         log("CREATE: Archivo '" + name + "' creado en '" + parentPath
+                + "' | Bloques: " + numBlocks + " | Primer bloque: " + firstBlock);
+        return true;
+    }
+
+    // -------------------------------------------------------
+    // NUEVO: CREATE - Crear archivo forzando bloque de inicio (Para JSON)
+    // -------------------------------------------------------
+    public boolean createFileWithStartBlock(String name, String owner, int numBlocks, String parentPath, int startBlock) {
+        // Validaciones
+        if (name == null || name.trim().isEmpty()) {
+            log("ERROR: Nombre de archivo inválido.");
+            return false;
+        }
+        if (numBlocks <= 0) {
+            log("ERROR: El número de bloques debe ser mayor a 0.");
+            return false;
+        }
+        if (!disk.hasSpace(numBlocks)) {
+            log("ERROR: No hay espacio suficiente en el disco para '" + name + "'.");
+            return false;
+        }
+
+        FileEntry parent = getEntryByPath(parentPath);
+        if (parent == null || !parent.isDirectory()) {
+            log("ERROR: Directorio padre '" + parentPath + "' no encontrado.");
+            return false;
+        }
+        if (parent.findChild(name) != null) {
+            log("ERROR: Ya existe un archivo llamado '" + name + "' en '" + parentPath + "'.");
+            return false;
+        }
+
+        // Asignar bloques en el disco EN UNA POSICIÓN ESPECÍFICA
+        int firstBlock = disk.allocateBlocksAt(name, numBlocks, startBlock);
+        if (firstBlock == -1) {
+            log("ERROR: Fallo al asignar bloques para '" + name + "' en el bloque de inicio " + startBlock + ". Posiblemente ocupado.");
+            return false;
+        }
+
+        // Obtener el color asignado por el disco al primer bloque
+        Color color = disk.getBlock(firstBlock).getColor();
+
+        // Crear entrada del archivo
+        FileEntry newFile = new FileEntry(name, owner, numBlocks, false, color);
+        newFile.setFirstBlock(firstBlock);
+
+        parent.addChild(newFile);
+        allFiles.addLast(newFile);
+
+        log("CREATE (JSON): Archivo '" + name + "' creado en '" + parentPath
                 + "' | Bloques: " + numBlocks + " | Primer bloque: " + firstBlock);
         return true;
     }

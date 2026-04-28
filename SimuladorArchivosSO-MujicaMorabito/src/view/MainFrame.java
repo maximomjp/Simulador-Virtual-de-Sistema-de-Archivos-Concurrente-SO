@@ -752,10 +752,11 @@ public class MainFrame extends JFrame {
                 // Configurar cabezal
                 diskScheduler.setCurrentHeadPosition(tc.initialHead);
 
-                // Crear system files
+                // Crear system files usando el bloque de inicio del JSON
                 Node<JsonManager.SystemFile> sf = tc.systemFiles.getHead();
                 while (sf != null) {
-                    fileSystem.createFile(sf.data.name, "admin", sf.data.blocks, "/");
+                    // Ahora le pasamos sf.data.position para que respete el JSON
+                    fileSystem.createFileWithStartBlock(sf.data.name, "admin", sf.data.blocks, "/", sf.data.position);
                     sf = sf.next;
                 }
 

@@ -34,43 +34,71 @@ public class VirtualDisk {
     }
 
     // -------------------------------------------------------
-    // Asignación encadenada: asigna 'numBlocks' bloques a un archivo
-    // Retorna el índice del primer bloque, o -1 si no hay espacio
+    // Asignación encadenada desde un bloque inicial específico (Para el JSON)
     // -------------------------------------------------------
-    public int allocateBlocks(String fileName, int numBlocks) {
+    public int allocateBlocksAt(String fileName, int numBlocks, int startBlock) {
         if (numBlocks <= 0) throw new IllegalArgumentException("Número de bloques inválido.");
-        if (freeBlocksCount < numBlocks) return -1; // no hay espacio
+        if (freeBlocksCount < numBlocks) return -1; // No hay espacio en todo el disco
+        if (startBlock < 0 || startBlock >= totalBlocks || !blocks[startBlock].isFree()) {
+            return -1; // El bloque inicial exigido ya está ocupado o no es válido
+        }
 
         Color color = getNextColor();
+        int currentBlock = startBlock;
+        blocks[currentBlock].allocate(fileName, color);
+        int blocksAllocated = 1;
 
-        // Recolectar bloques libres
-        LinkedList<Integer> freeIndices = new LinkedList<>();
-        for (int i = 0; i < totalBlocks; i++) {
-            if (blocks[i].isFree()) {
-                freeIndices.addLast(i);
-                if (freeIndices.size() == numBlocks) break;
-            }
+        // Buscar y encadenar los bloques restantes
+        while (blocksAllocated < numBlocks) {
+            // ¡EL CAMBIO MAGISTRAL! Busca a partir del bloque siguiente al actual
+            int nextFree = findNextFreeBlock(currentBlock + 1); 
+            
+            blocks[currentBlock].setNextBlock(nextFree); // El actual apunta al siguiente
+            currentBlock = nextFree; // Saltamos al nuevo bloque
+            blocks[currentBlock].allocate(fileName, color); // Lo ocupamos
+            blocksAllocated++;
         }
 
-        // Encadenar los bloques
-        Node<Integer> current = freeIndices.getHead();
-        int firstBlock = current.data;
-
-        while (current != null) {
-            int idx = current.data;
-            blocks[idx].allocate(fileName, color);
-
-            if (current.next != null) {
-                blocks[idx].setNextBlock(current.next.data);
-            } else {
-                blocks[idx].setNextBlock(-1); // último bloque
-            }
-
-            current = current.next;
-        }
-
+        // El último bloque de la cadena debe apuntar a -1
+        blocks[currentBlock].setNextBlock(-1);
         freeBlocksCount -= numBlocks;
-        return firstBlock;
+        
+        return startBlock;
+    }
+
+    // -------------------------------------------------------
+    // Asignación encadenada estándar (Para el botón "Crear Archivo" en la GUI)
+    // -------------------------------------------------------
+    public int allocateBlocks(String fileName, int numBlocks) {
+        if (freeBlocksCount < numBlocks) return -1;
+        
+        // Empezamos a buscar desde 0 cuando es un archivo nuevo sin posición exigida
+        int firstFree = findNextFreeBlock(0); 
+        if (firstFree == -1) return -1;
+        
+        return allocateBlocksAt(fileName, numBlocks, firstFree);
+    }
+
+    // -------------------------------------------------------
+    // NUEVO: Busca el siguiente bloque libre a partir de un índice (con Wrap-Around)
+    // -------------------------------------------------------
+    private int findNextFreeBlock(int startIndex) {
+        // 1. Buscar hacia adelante desde el startIndex hasta el final del disco
+        for (int i = startIndex; i < totalBlocks; i++) {
+            if (blocks[i].isFree()) {
+                return i;
+            }
+        }
+        
+        // 2. Si llegamos al final del disco y no encontramos, damos la vuelta (wrap-around)
+        // y buscamos desde el bloque 0 hasta el startIndex
+        for (int i = 0; i < startIndex; i++) {
+            if (blocks[i].isFree()) {
+                return i;
+            }
+        }
+        
+        return -1; // No hay bloques libres en absoluto
     }
 
     // -------------------------------------------------------
