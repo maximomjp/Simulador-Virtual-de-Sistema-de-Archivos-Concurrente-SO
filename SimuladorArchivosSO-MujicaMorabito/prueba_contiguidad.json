@@ -1,0 +1,16 @@
+{
+  "test_id": "Demostracion_Bloques_No_Contiguos",
+  "initial_head": 0,
+  "requests": [
+    {"pos": 10, "op": "DELETE"},
+    {"pos": 30, "op": "DELETE"},
+    {"pos": 50, "op": "CREATE"}
+  ],
+  "system_files": {
+    "0": {"name": "fijo_A.txt", "blocks": 2},
+    "10": {"name": "borrar_B.txt", "blocks": 2},
+    "20": {"name": "fijo_C.txt", "blocks": 2},
+    "30": {"name": "borrar_D.txt", "blocks": 2},
+    "40": {"name": "fijo_E.txt", "blocks": 2}
+  }
+}
