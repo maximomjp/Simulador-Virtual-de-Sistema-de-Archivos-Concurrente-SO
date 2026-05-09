@@ -5,6 +5,12 @@
         <group>
             <file>file:/C:/Users/MaximoDev/java/sistemas_operativos/Simulador-Virtual-de-Sistema-de-Archivos-Concurrente-SO/SimuladorArchivosSO-MujicaMorabito/src/model/FileEntry.java</file>
             <file>file:/C:/Users/MaximoDev/java/sistemas_operativos/Simulador-Virtual-de-Sistema-de-Archivos-Concurrente-SO/SimuladorArchivosSO-MujicaMorabito/src/model/LockManager.java</file>
+            <file>file:/C:/Users/MaximoDev/java/sistemas_operativos/Simulador-Virtual-de-Sistema-de-Archivos-Concurrente-SO/SimuladorArchivosSO-MujicaMorabito/src/model/VirtualDisk.java</file>
+            <file>file:/C:/Users/MaximoDev/java/sistemas_operativos/Simulador-Virtual-de-Sistema-de-Archivos-Concurrente-SO/SimuladorArchivosSO-MujicaMorabito/src/model/FileSystem.java</file>
+            <file>file:/C:/Users/MaximoDev/java/sistemas_operativos/Simulador-Virtual-de-Sistema-de-Archivos-Concurrente-SO/SimuladorArchivosSO-MujicaMorabito/src/view/MainFrame.java</file>
+            <file>file:/C:/Users/MaximoDev/java/sistemas_operativos/Simulador-Virtual-de-Sistema-de-Archivos-Concurrente-SO/SimuladorArchivosSO-MujicaMorabito/src/model/JsonManager.java</file>
+            <file>file:/C:/Users/MaximoDev/java/sistemas_operativos/Simulador-Virtual-de-Sistema-de-Archivos-Concurrente-SO/SimuladorArchivosSO-MujicaMorabito/src/model/UserManager.java</file>
+            <file>file:/C:/Users/MaximoDev/java/sistemas_operativos/Simulador-Virtual-de-Sistema-de-Archivos-Concurrente-SO/SimuladorArchivosSO-MujicaMorabito/src/model/Journal.java</file>
         </group>
     </open-files>
 </project-private>
